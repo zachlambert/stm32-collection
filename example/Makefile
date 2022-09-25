@@ -1,0 +1,14 @@
+.PHONY: build
+build:
+	mkdir -p build
+	cmake -E chdir build cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=1 ..
+	cmake --build build
+	sed -i 's/arm-none-eabi-//g' build/compile_commands.json
+
+.PHONY: clean
+clean:
+	rm -r build
+
+.PHONY: flash
+flash:
+	stm32prog -c port=swd -w build/blink.elf 0x08000000 -g 0x08000000
