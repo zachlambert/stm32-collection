@@ -1,0 +1,9 @@
+[submodule "libopencm3"]
+	path = libopencm3
+	url = git@github.com:libopencm3/libopencm3.git
+[submodule "FreeRTOS"]
+	path = FreeRTOS
+	url = git@github.com:FreeRTOS/FreeRTOS.git
+[submodule "nanoprintf"]
+	path = nanoprintf
+	url = git@github.com:charlesnicholson/nanoprintf.git
