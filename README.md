@@ -22,3 +22,5 @@ Options specified as find_package components:
 - `specs-nano`: Uses the linker flag '-specs=nano.specs' instead of the default '-specs=nosys.specs'
 - `nostartfiles`: Uses the linker flag '-nostartfiles' which is omitted by default.
 - `enable-error-handling`: Adjusted the generated linker script to allow error handling, which although increases the binary size, is required for certain C++ feature (eg: pure virtual classes).
+
+Note: In the example makefile, the target 'flash' uses the command stm32prog, which on my system is a symlink to STM32CubeProgrammer.
