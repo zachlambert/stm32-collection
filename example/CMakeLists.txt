@@ -4,6 +4,7 @@ project(example)
 
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_CURRENT_LIST_DIR}/../)
 set(FreeRTOS_CONFIG_DIR ${CMAKE_CURRENT_LIST_DIR}/config)
+set(FreeRTOS_HEAP 1)
 find_package(stm32-collection COMPONENTS
     stm32f103x8
     freertos

@@ -172,12 +172,14 @@ endfunction()
 
 if(${USE_FREERTOS})
     set(FreeRTOS_COMPILER GCC)
-    if (NOT DEFINED FreeRTOS_HEAP)
-        set(FreeRTOS_HEAP 1)
-    endif()
     if(NOT DEFINED FreeRTOS_CONFIG_DIR)
         message(FATAL_ERROR "Must set FreeRTOS_CONFIG_DIR to the directory containing FreeRTOSConfig.h")
     endif()
+    set(FreeRTOS_CONFIG ${FreeRTOS_CONFIG_DIR}/FreeRTOSConfig.h)
+    if(NOT EXISTS ${FreeRTOS_CONFIG})
+        message(FATAL_ERROR "File ${FreeRTOS_CONFIG} doesn't exist")
+    endif()
+    add_custom_target(freertos_config ALL DEPENDS ${FreeRTOS_CONFIG})
 
     execute_process(COMMAND
         python3
@@ -188,22 +190,26 @@ if(${USE_FREERTOS})
     endif()
 
     set(FreeRTOS_PATH ${CMAKE_CURRENT_LIST_DIR}/FreeRTOS/FreeRTOS/Source)
-    add_library(freertos STATIC
+    set(FreeRTOS_SOURCE
         ${FreeRTOS_PATH}/tasks.c
         ${FreeRTOS_PATH}/queue.c
         ${FreeRTOS_PATH}/list.c
-        ${FreeRTOS_PATH}/portable/MemMang/heap_${FreeRTOS_HEAP}.c
         ${FreeRTOS_PATH}/portable/${FreeRTOS_COMPILER}/${FreeRTOS_ARCH}/port.c
         ${FreeRTOS_PATH}/timers.c
         ${FreeRTOS_PATH}/event_groups.c
         ${FreeRTOS_PATH}/stream_buffer.c
     )
+    if(DEFINED FreeRTOS_HEAP)
+        list(APPEND FreeRTOS_SOURCE ${FreeRTOS_PATH}/portable/MemMang/heap_${FreeRTOS_HEAP}.c)
+    endif()
+    add_library(freertos STATIC ${FreeRTOS_SOURCE})
     target_include_directories(freertos
         PUBLIC
             ${FreeRTOS_PATH}/include
             ${FreeRTOS_PATH}/portable/${FreeRTOS_COMPILER}/${FreeRTOS_ARCH}
             ${FreeRTOS_CONFIG_DIR}
     )
+    add_dependencies(freertos freertos_config)
     stm32_set_compile_options_c(freertos)
 endif()
 
