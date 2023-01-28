@@ -2,17 +2,26 @@ cmake_minimum_required(VERSION 3.3)
 
 project(stm32-collection)
 
-set(MCU_NAME stm32f103x8)
-set(USE_FREERTOS TRUE)
-set(USE_NANOPRINTF TRUE)
-set(FreeRTOS_CONFIG_DIR ${CMAKE_CURRENT_LIST_DIR}/FreeRTOSConfig/stm32f103x8)
+cmake_policy(SET CMP0076 NEW)
 
-set(CMAKE_C_COMPILER arm-none-eabi-gcc)
-set(CMAKE_CXX_COMPILER arm-none-eabi-g++)
-set(CMAKE_ASM_COMPILER arm-none-eabi-gcc)
-set(CMAKE_AR arm-none-eabi-ar)
-set(CMAKE_OBJCOPY arm-none-eabi-objcopy)
-set(CMAKE_SIZE arm-none-eabi-size)
+# Need to compile for a specific microcontroller
+# Stop if this isn't specified
+
+if (NOT DEFINED MCU_NAME)
+    message(FATAL_ERROR "Must set microcontroller name with -DMCU_NAME=...")
+endif()
+
+set(LIB_PATH /opt/stm32-collection/${MCU_NAME}/lib)
+set(INCLUDE_PATH /opt/stm32-collection/${MCU_NAME}/include)
+set(TOOLCHAIN_PATH /opt/stm32-collection/toolchain)
+
+set(SPECS nosys.specs)
+set(NOSTARTFILES TRUE)
+set(ENABLE_ERROR_HANDLING FALSE)
+set(FreeRTOS_HEAP 1)
+
+# === 1. COLLECT INFORMATION ABOUT MICROCONTROLLER ===
+# Used to generate compiler flags, etc
 
 set(opencm3_PATH ${CMAKE_CURRENT_LIST_DIR}/libopencm3)
 set(DEVICES_DATA ${opencm3_PATH}/ld/devices.data)
@@ -42,7 +51,22 @@ execute_process(COMMAND
     OUTPUT_VARIABLE genlink_defs_str)
 separate_arguments(genlink_defs UNIX_COMMAND ${genlink_defs_str})
 
-set(LINKER_SCRIPT ${PROJECT_BINARY_DIR}/linker.ld)
+# Also get the architecture for FreeRTOS
+execute_process(COMMAND
+    python3
+    ${CMAKE_CURRENT_LIST_DIR}/scripts/freertos_arch.py ${genlink_cpu}
+    OUTPUT_VARIABLE FreeRTOS_ARCH)
+if (FreeRTOS_ARCH STREQUAL "")
+    message(FATAL_ERROR "Failed to get freertos architecture")
+endif()
+
+
+# 2. === GENERATE LINKER SCRIPT ===
+# Required when compiling the final executable, such that the linker knows
+# where to put things in memory.
+
+set(LINKER_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/linker.ld)
+set(INSTALL_LINKER_SCRIPT ${LIB_PATH}/linker.ld)
 add_custom_command(
     OUTPUT ${LINKER_SCRIPT}
     COMMAND ${CMAKE_CXX_COMPILER} ${genlink_defs} -P -E ${opencm3_PATH}/ld/linker.ld.S -o ${LINKER_SCRIPT}
@@ -51,6 +75,15 @@ add_custom_command(
     COMMENT "Generating linker script"
 )
 add_custom_target(linker_script ALL DEPENDS ${LINKER_SCRIPT})
+
+
+# 3. === GENERATE TOOLCHAIN FILE AND INCLUDE THIS ===
+# Use the collected information to generate a toolchain file.
+# This is required to build the following libraries and also for
+# any executable that is built.
+# In this CMakeLists.txt, the toolchain will be included.
+# When building an executable (or external libraries), these will use
+# the toolchain file with -DCMAKE_TOOLCHAIN=...
 
 set(ARCH_FLAGS -mcpu=${genlink_cpu})
 
@@ -77,12 +110,7 @@ if(NOT EXISTS ${opencm3_LIB})
     message(FATAL_ERROR "No library exists for ${genlink_family} or ${genlink_subfamily}")
 endif()
 
-add_library(opencm3 STATIC IMPORTED)
-set_target_properties(opencm3 PROPERTIES IMPORTED_LOCATION ${opencm3_LIB})
-target_include_directories(opencm3 INTERFACE ${opencm3_PATH}/include)
-
 set(OPT -Os)
-
 
 # C and CXX
 separate_arguments(TGT_CPPFLAGS UNIX_COMMAND ${genlink_cpp_flags})
@@ -100,33 +128,42 @@ list(APPEND TGT_CXXFLAGS -fno-common)
 list(APPEND TGT_CXXFLAGS -ffunction-sections -fdata-sections)
 list(APPEND TGT_CXXFLAGS -Wextra -Wredundant-decls)
 
-set(TGT_LDFLAGS -T${LINKER_SCRIPT} ${ARCH_FLAGS})
+set(TGT_LDFLAGS ${ARCH_FLAGS})
 list(APPEND TGT_LDFLAGS -specs=${SPECS} -Wl,--gc-sections)
+list(APPEND TGT_LDFLAGS -Wl,-Map=${target}.map -Wl,--start-group)
+list(APPEND TGT_LDFLAGS -lc -lgcc -lnosys -Wl,--end-group)
+if(${NOSTARTFILES})
+    list(APPEND TGT_LDFLAGS -nostartfiles)
+endif()
+list(APPEND TGT_LDFLAGS -T${INSTALL_LINKER_SCRIPT})
 
-function(stm32_set_compile_options_c target)
-    target_compile_options(${target} PRIVATE ${TGT_CPPFLAGS} ${TGT_CFLAGS})
-endfunction()
-function(stm32_set_compile_options_cxx target)
-    target_compile_options(${target} PRIVATE ${TGT_CPPFLAGS} ${TGT_CXXFLAGS})
-endfunction()
+set(TOOLCHAIN_FILE ${CMAKE_CURRENT_BINARY_DIR}/toolchain.cmake)
+configure_file(template/toolchain.cmake ${TOOLCHAIN_FILE} @ONLY)
+include(${TOOLCHAIN_FILE})
+
+# 2. Build libraries
+
+# 2a) opencm3
+# This is already built, so created an IMPORTED library
+
+add_library(opencm3 STATIC IMPORTED)
+set_target_properties(opencm3 PROPERTIES IMPORTED_LOCATION ${opencm3_LIB})
+target_include_directories(opencm3 INTERFACE
+    ${opencm3_PATH}/include
+)
+# Technically, an executable depends on the linker script, but convenient
+# to attach to opencm3, to make sure it is generated when installing opencm3.
+add_dependencies(opencm3 linker_script)
+
+
+# 2b) FreeRTOS
 
 set(FreeRTOS_COMPILER GCC)
-if(NOT DEFINED FreeRTOS_CONFIG_DIR)
-    message(FATAL_ERROR "Must set FreeRTOS_CONFIG_DIR to the directory containing FreeRTOSConfig.h")
-endif()
+set(FreeRTOS_CONFIG_DIR ${CMAKE_CURRENT_LIST_DIR}/FreeRTOSConfig/${MCU_NAME})
 set(FreeRTOS_CONFIG ${FreeRTOS_CONFIG_DIR}/FreeRTOSConfig.h)
-if(NOT EXISTS ${FreeRTOS_CONFIG})
-    message(FATAL_ERROR "File ${FreeRTOS_CONFIG} doesn't exist")
-endif()
-add_custom_target(freertos_config ALL DEPENDS ${FreeRTOS_CONFIG})
 
-execute_process(COMMAND
-    python3
-    ${CMAKE_CURRENT_LIST_DIR}/scripts/freertos_arch.py ${genlink_cpu}
-    OUTPUT_VARIABLE FreeRTOS_ARCH)
-if (FreeRTOS_ARCH STREQUAL "")
-    message(FATAL_ERROR "Failed to get freertos architecture")
-endif()
+# Add the config as a target to force a rebuild when this changes
+add_custom_target(freertos_config ALL DEPENDS ${FreeRTOS_CONFIG})
 
 set(FreeRTOS_PATH ${CMAKE_CURRENT_LIST_DIR}/FreeRTOS/FreeRTOS/Source)
 set(FreeRTOS_SOURCE
@@ -141,15 +178,16 @@ set(FreeRTOS_SOURCE
 if(DEFINED FreeRTOS_HEAP)
     list(APPEND FreeRTOS_SOURCE ${FreeRTOS_PATH}/portable/MemMang/heap_${FreeRTOS_HEAP}.c)
 endif()
+
 add_library(freertos STATIC ${FreeRTOS_SOURCE})
-target_include_directories(freertos
-    PUBLIC
-        ${FreeRTOS_PATH}/include
-        ${FreeRTOS_PATH}/portable/${FreeRTOS_COMPILER}/${FreeRTOS_ARCH}
-        ${FreeRTOS_CONFIG_DIR}
+target_include_directories(freertos PUBLIC
+    ${FreeRTOS_PATH}/include
+    ${FreeRTOS_PATH}/portable/${FreeRTOS_COMPILER}/${FreeRTOS_ARCH}
+    ${FreeRTOS_CONFIG_DIR}
 )
 add_dependencies(freertos freertos_config)
-stm32_set_compile_options_c(freertos)
+
+# 2c) nanoprintf
 
 set(nanoprintf_PATH ${CMAKE_CURRENT_LIST_DIR}/nanoprintf)
 add_library(nanoprintf STATIC
@@ -158,24 +196,67 @@ add_library(nanoprintf STATIC
 target_include_directories(nanoprintf PUBLIC
     ${nanoprintf_PATH}/include
 )
-stm32_set_compile_options_c(nanoprintf)
+
+
+# 3. Setup installation
+
+
+# 3a) Install headers to ${INSTALL_PATH}
 
 install(
-    TARGETS
-        freertos
-        nanoprintf
-    DESTINATION
-        /opt/stm32-collection/stm32f103x8
+    DIRECTORY ${opencm3_PATH}/include/
+    DESTINATION ${INCLUDE_PATH}/opencm3
 )
 install(
-    FILES
-        ${opencm3_LIB}
-    DESTINATION
-        /opt/stm32-collection/stm32f103x8
+    DIRECTORY ${FreeRTOS_PATH}/include/
+    DESTINATION ${INCLUDE_PATH}/freertos
 )
 install(
-    FILES
-        toolchain/${MCU_NAME}.cmake
-    DESTINATION
-        /opt/stm32-collection/toolchain
+    DIRECTORY ${FreeRTOS_PATH}/portable/${FreeRTOS_COMPILER}/${FreeRTOS_ARCH}/
+    DESTINATION ${INCLUDE_PATH}/freertos_portable
+)
+install(
+    DIRECTORY ${FreeRTOS_CONFIG_DIR}/
+    DESTINATION ${INCLUDE_PATH}/freertos_config
+)
+install(
+    DIRECTORY ${nanoprintf_PATH}/include/
+    DESTINATION ${INCLUDE_PATH}/nanoprintf
+)
+
+# 3b) Install library files
+
+install(
+    FILES ${opencm3_LIB}
+    DESTINATION ${LIB_PATH}
+    RENAME libopencm3.a
+)
+install(
+    TARGETS freertos nanoprintf
+    LIBRARY DESTINATION ${LIB_PATH}
+    ARCHIVE DESTINATION ${LIB_PATH}
+)
+
+# 3c) Generate and install cmake config file
+
+set(CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/stm32-collection.config)
+configure_file(template/stm32-collection.cmake ${CONFIG_FILE} @ONLY)
+install(
+    FILES ${CONFIG_FILE}
+    DESTINATION ${LIB_PATH}
+)
+
+# 3d) Install toolchain file
+
+install(
+    FILES ${TOOLCHAIN_FILE}
+    DESTINATION ${TOOLCHAIN_PATH}
+    RENAME ${MCU_NAME}.cmake
+)
+
+# 3e) Install linker script
+
+install(
+    FILES ${LINKER_SCRIPT}
+    DESTINATION ${LIB_PATH}
 )
