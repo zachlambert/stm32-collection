@@ -1,26 +1,35 @@
 # stm32-collection
 
 Collection of libraries useful for stm32 development, setup for use with cmake.  
-Currently only tested for stm32f103c8t6, but should work for other boards.
+Currently only tested for stm32f103c8t6 and building on linux.
 
 Uses libopencm3, an arm firmware library that I prefer to the standard stm32 HAL.  
 The makefiles provided by libopencm3 automatically provide appropriate compiler defines, architecture flags, etc, and generate a linker script.  
 This has been ported to cmake.
 
-To use, append the directory of stm32-collection to CMAKE_PREFIX_PATH as shown in the example:
-- Call `find_package(stm32-collection COMPONENTS <mcu name> [<other libraries/options>])`
-  This will also setup the toolchain
-- Call `stm32_set_compile_options_c(<target>)` to set the compile options for a C library or executable
-- Call `stm32_set_compile_options_cxx(<target>)` to set the compile options for a C++ library or executable
-- Call `stm32_configure_executable(<target>)` to setup the linker options (including a generated linker script) for the executable, and add post-build targets (bin, hex).
+## Installation
 
-Optional libraries specified as find_package components:
-- `freertos`: FreeRTOS
-- `nanoprintf`: A printf/snprintf/etc implementation with a smaller binary size
+`git clone git@github.com:zachlambert/stm32-collection.git`  
+`make build MCU=stm32f103x8`  
+`sudo make install MCU=stm32f103x8`
 
-Options specified as find_package components:
-- `specs-nano`: Uses the linker flag '-specs=nano.specs' instead of the default '-specs=nosys.specs'
-- `nostartfiles`: Uses the linker flag '-nostartfiles' which is omitted by default.
-- `enable-error-handling`: Adjusted the generated linker script to allow error handling, which although increases the binary size, is required for certain C++ feature (eg: pure virtual classes).
+This will build libraries for the stm32f103x8 target under build/stm32f103x8, then install libraries to `/opt/stm32-collection/lib/stm32f103x8/` and a toolchain file to `/opt/stm32-collection/toolchain/stm32f103x8.cmake`.
 
-Note: In the example makefile, the target 'flash' uses the command stm32prog, which on my system is a symlink to STM32CubeProgrammer.
+## Usage
+
+See the example. Need to do the following two things:
+- Add `-DCMAKE_TOOLCHAIN_FILE=/opt/stm32-collection/toolchain/stm32f103x8.cmake` when configuring the project.  
+Note, that if the toolchain file changes for whatever reason, a full rebuild is needed.
+- Tell cmake where to find `stm32-collection-config.cmake`.
+
+Can then include the libraries `opencm3`, `freertos`, `nanoprintf`.
+
+## Things to improve
+
+- Better handle the installation, haven't worked out how to do it with proper project config files.
+- Install the library cmake file to a location that cmake knows where to look, to avoid having to specify the location.
+- Have cmake automatically pick the correct library config cmake file based off the toolchain.
+- Have the `FreeRTOSConfig.h` files be configured automatically for a given microcontroller instead of having to create a new version for each microcontroller.
+- Test on other microcontrollers.
+
+Another potential issue is that currently freertos is compiled for a predefined `FreeRTOSConfig.h` file. If a project wants to change this, it would have to compile freertos itself. It might be worth adding the option for this. However I also like the idea of specifying a reasonable config file for each microcontroller, to make it easier for the library user to get started.
