@@ -1,10 +1,9 @@
 cmake_minimum_required(VERSION 3.13)
 
+set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")
 project(example)
 
-include(/opt/stm32-collection/toolchain/stm32f103x8.cmake)
 list(APPEND CMAKE_PREFIX_PATH /opt/stm32-collection/stm32f103x8/lib)
-
 find_package(stm32-collection)
 
 add_executable(example
