@@ -1,16 +1,20 @@
 # stm32-collection
 
-Collection of libraries useful for stm32 development, setup for use with cmake.  
+Collection of libraries useful for stm32 development, setup for use with cmake.
 Currently only tested for stm32f103c8t6 and building on linux.
 
-Uses libopencm3, an arm firmware library that I prefer to the standard stm32 HAL.  
-The makefiles provided by libopencm3 automatically provide appropriate compiler defines, architecture flags, etc, and generate a linker script.  
+Uses libopencm3, an arm firmware library that I prefer to the standard stm32 HAL.
+The makefiles provided by libopencm3 automatically provide appropriate compiler defines, architecture flags, etc, and generate a linker script.
 This has been ported to cmake.
+
+## Dependencies
+
+`sudo apt install -y gcc-arm-none-eabi`
 
 ## Installation
 
-`git clone git@github.com:zachlambert/stm32-collection.git`  
-`make build MCU=stm32f103x8`  
+`git clone git@github.com:zachlambert/stm32-collection.git`
+`make build MCU=stm32f103x8`
 `sudo make install MCU=stm32f103x8`
 
 This will build libraries for the stm32f103x8 target under build/stm32f103x8, then install libraries to `/opt/stm32-collection/lib/stm32f103x8/` and a toolchain file to `/opt/stm32-collection/toolchain/stm32f103x8.cmake`.
@@ -18,7 +22,7 @@ This will build libraries for the stm32f103x8 target under build/stm32f103x8, th
 ## Usage
 
 See the example. Need to do the following two things:
-- Add `-DCMAKE_TOOLCHAIN_FILE=/opt/stm32-collection/toolchain/stm32f103x8.cmake` when configuring the project.  
+- Add `-DCMAKE_TOOLCHAIN_FILE=/opt/stm32-collection/toolchain/stm32f103x8.cmake` when configuring the project.
 Note, that if the toolchain file changes for whatever reason, a full rebuild is needed.
 - Tell cmake where to find `stm32-collection-config.cmake`.
 

@@ -194,7 +194,7 @@ add_library(nanoprintf STATIC
     ${nanoprintf_PATH}/nanoprintf.c
 )
 target_include_directories(nanoprintf PUBLIC
-    ${nanoprintf_PATH}/include
+    ${nanoprintf_PATH}/nanoprintf
 )
 
 
@@ -220,8 +220,8 @@ install(
     DESTINATION ${INCLUDE_PATH}/freertos_config
 )
 install(
-    DIRECTORY ${nanoprintf_PATH}/include/
-    DESTINATION ${INCLUDE_PATH}/nanoprintf
+    FILES ${nanoprintf_PATH}/nanoprintf/nanoprintf.h
+    DESTINATION ${INCLUDE_PATH}
 )
 
 # 3b) Install library files
