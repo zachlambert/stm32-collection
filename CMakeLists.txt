@@ -239,8 +239,8 @@ install(
 
 # 3c) Generate and install cmake config file
 
-set(CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/stm32-collection.config)
-configure_file(template/stm32-collection.cmake ${CONFIG_FILE} @ONLY)
+set(CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/stm32-collection-config.cmake)
+configure_file(template/stm32-collection.cmake ${CONFIG_FILE})
 install(
     FILES ${CONFIG_FILE}
     DESTINATION ${LIB_PATH}

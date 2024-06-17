@@ -18,4 +18,4 @@ target_include_directories(freertos INTERFACE
 
 add_library(nanoprintf STATIC IMPORTED)
 set_target_properties(nanoprintf PROPERTIES IMPORTED_LOCATION ${LIB_PATH}/libnanoprintf.a)
-target_include_directories(nanoprintf INTERFACE ${INCLUDE_PATH}/nanoprintf)
+target_include_directories(nanoprintf INTERFACE ${INCLUDE_PATH})
