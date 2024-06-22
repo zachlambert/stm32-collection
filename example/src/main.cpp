@@ -3,6 +3,7 @@
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/timer.h>
+#include <libopencm3/stm32/usart.h>
 
 #include "usb.h"
 
@@ -50,6 +51,26 @@ void delay_ms(uint16_t ms)
     }
 }
 
+void usart_setup()
+{
+    AFIO_MAPR |= AFIO_MAPR_USART1_REMAP;
+
+    // Setup GPIO pin GPIO_USART3_TX/GPIO10 on GPIO port B for transmit
+    gpio_set_mode(
+        GPIOB,
+        GPIO_MODE_OUTPUT_50_MHZ,
+        GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_USART1_RE_TX);
+
+    usart_set_baudrate(USART1, 115200);
+    usart_set_databits(USART1, 8);
+    usart_set_stopbits(USART1, USART_STOPBITS_1);
+    usart_set_mode(USART1, USART_MODE_TX);
+    usart_set_parity(USART1, USART_PARITY_NONE);
+    usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
+
+	usart_enable(USART1);
+}
+
 void main_task(void* args)
 {
     gpio_set(GPIOA, GPIO5);
@@ -64,9 +85,13 @@ void main_task(void* args)
     while (true) {
 		usbd_poll(usbd_dev);
         if (i == 0) {
-            npf_snprintf(message, sizeof(message), "Time: %f\n", time);
+            size_t message_len = npf_snprintf(message, sizeof(message), "Time: %f\r\n", time);
+            usbd_ep_write_packet(usbd_dev, 0x82, message, message_len);
+            for (size_t i = 0; i < message_len; i++) {
+                // usart_send(USART1, message[i]);
+            }
+
             time += ((float)delay_ms * ticks_per_write) * 1e-3;
-            usbd_ep_write_packet(usbd_dev, 0x82, message, strnlen(message, sizeof(message)));
             gpio_set(GPIOA, GPIO4);
         }
         i++;
@@ -85,6 +110,7 @@ int main(void)
     clock_setup();
     gpio_setup();
     delay_setup();
+    // usart_setup();
 
     xTaskCreate(main_task, "main_task", 256 * 4, NULL, 1, NULL);
     vTaskStartScheduler();

@@ -1,6 +1,6 @@
 
 # Set to 'Generic' for systems that don't have an OS (eg: embedded)
-set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_NAME Generic-ELF)
 # Custom argument, used to select build options from:
 # ${CMAKE_SYSTEM_NAME}-COMPILER_ID-${CMAKE_SYSTEM_PROCESSOR}
 set(CMAKE_SYSTEM_PROCESSOR @MCU_NAME@)
@@ -24,7 +24,10 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
-list(APPEND CMAKE_PREFIX_PATH {CMAKE_FIND_ROOT_PATH}/lib)
+# Required for some reason
+set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")
+
+list(APPEND CMAKE_PREFIX_PATH ${CMAKE_FIND_ROOT_PATH}/cmake)
 
 # When copying lists into configure_file, cmake converts them to strings,
 # which put's ";" inside the list. Need to correct for this.
@@ -37,9 +40,13 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${TGT_CPPFLAGS_LIST} ${TGT_C_FLAGS_LIST}")
 string(STRIP "${CMAKE_C_FLAGS}" CMAKE_C_FLAGS)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TGT_CPPFLAGS_LIST} ${TGT_CXX_FLAGS}")
 string(STRIP "${CMAKE_CXX_FLAGS}" CMAKE_CXX_FLAGS)
-set(CMAKE_EXECUTABLE_SUFFIX ".elf")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${TGT_LDFLAGS_LIST}")
+set(CMAKE_EXE_LINKER_FLAGS ${TGT_LDFLAGS_LIST})
 string(STRIP "${CMAKE_LD_FLAGS}" CMAKE_LD_FLAGS)
+
+set(CMAKE_EXECUTABLE_SUFFIX .elf)
+set(CMAKE_EXECUTABLE_SUFFIX_ASM .elf)
+set(CMAKE_EXECUTABLE_SUFFIX_C .elf)
+set(CMAKE_EXECUTABLE_SUFFIX_CXX .elf)
 
 function(stm32_add_post_build target)
     add_custom_command(

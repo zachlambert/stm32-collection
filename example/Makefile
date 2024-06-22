@@ -12,3 +12,7 @@ clean:
 .PHONY: flash
 flash:
 	stm32prog -c port=swd -w build/example.elf 0x08000000 -g 0x08000000
+
+.PHONY: console
+console:
+	stm32prog -c port=/dev/ttyACM0 console

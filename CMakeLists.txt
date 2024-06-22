@@ -12,6 +12,7 @@ if (NOT DEFINED MCU_NAME)
 endif()
 
 set(LIB_PATH /opt/stm32-collection/${MCU_NAME}/lib)
+set(CMAKE_CONFIG_PATH /opt/stm32-collection/${MCU_NAME}/cmake)
 set(INCLUDE_PATH /opt/stm32-collection/${MCU_NAME}/include)
 set(TOOLCHAIN_PATH /opt/stm32-collection/toolchain)
 
@@ -66,7 +67,7 @@ endif()
 # where to put things in memory.
 
 set(LINKER_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/linker.ld)
-set(INSTALL_LINKER_SCRIPT ${LIB_PATH}/linker.ld)
+set(INSTALL_LINKER_SCRIPT ${TOOLCHAIN_PATH}/ld/${MCU_NAME}.ld)
 add_custom_command(
     OUTPUT ${LINKER_SCRIPT}
     COMMAND ${CMAKE_CXX_COMPILER} ${genlink_defs} -P -E ${opencm3_PATH}/ld/linker.ld.S -o ${LINKER_SCRIPT}
@@ -131,7 +132,7 @@ list(APPEND TGT_CXXFLAGS -Wextra -Wredundant-decls)
 set(TGT_LDFLAGS ${ARCH_FLAGS})
 list(APPEND TGT_LDFLAGS -specs=${SPECS} -Wl,--gc-sections)
 list(APPEND TGT_LDFLAGS -Wl,-Map=${target}.map -Wl,--start-group)
-list(APPEND TGT_LDFLAGS -lc -lgcc -lnosys -Wl,--end-group)
+list(APPEND TGT_LDFLAGS -lc -lgcc -Wl,--end-group)
 if(${NOSTARTFILES})
     list(APPEND TGT_LDFLAGS -nostartfiles)
 endif()
@@ -243,7 +244,7 @@ set(CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/stm32-collection-config.cmake)
 configure_file(template/stm32-collection.cmake ${CONFIG_FILE})
 install(
     FILES ${CONFIG_FILE}
-    DESTINATION ${LIB_PATH}
+    DESTINATION ${CMAKE_CONFIG_PATH}
 )
 
 # 3d) Install toolchain file
@@ -258,5 +259,6 @@ install(
 
 install(
     FILES ${LINKER_SCRIPT}
-    DESTINATION ${LIB_PATH}
+    DESTINATION ${TOOLCHAIN_PATH}/ld
+    RENAME ${MCU_NAME}.ld
 )
